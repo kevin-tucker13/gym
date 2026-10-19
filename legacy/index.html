@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gym Tracker</title>
+<meta name="theme-color" content="#0f1318">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#07090c;--bar:#0f1318;--card:#161b22;--card2:#232a34;--line:#343e4b;--text:#fff;--dim:#aeb9c7;--acc:#3ddc84;--ink:#03170b;--warn:#ffb629;--bad:#ff6b6b;--weak:#62c8ff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:120px}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow-x:hidden;overscroll-behavior-y:contain;-webkit-tap-highlight-color:transparent}
+button,.btn{font:inherit;color:inherit;border:0;border-radius:12px;min-height:48px;padding:0 14px;background:var(--card2);touch-action:manipulation;cursor:pointer;-webkit-appearance:none;appearance:none}
+button:active,.btn:active{filter:brightness(1.3)}
+p{margin:8px 0}
+
+/* pinned top bar: title, session clock, rest timer */
+.top{position:sticky;top:0;z-index:15;background:var(--bar);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 8px) 14px 8px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px}
+.title{font-size:20px;font-weight:800;min-width:0}
+.title small{display:block;font-size:13px;font-weight:500;color:var(--dim)}
+.side-note{color:var(--dim);font-weight:700;white-space:nowrap}
+.clock{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.clock small{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.clock.over{color:var(--warn)}
+.timer{text-align:center;padding-top:4px}
+.tlabel{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tnum{font-size:76px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums;margin:2px 0 8px}
+.tbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tbtns button{min-height:52px;font-size:18px;font-weight:800}
+.timer.over .tnum,.timer.over .tlabel{color:var(--acc)}
+.timer.over .adj{display:none}
+.timer.over .tbtns{grid-template-columns:1fr}
+body.typing .timer{display:flex;align-items:baseline;justify-content:center;gap:12px;padding-top:0}
+body.typing .tnum{font-size:34px;margin:0}
+body.typing .tbtns{display:none}
+
+main{padding:4px 12px calc(100px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto}
+h2,.label{font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin:22px 4px 8px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin:12px 0}
+.note{border-left:5px solid var(--weak)}
+.note.warn{border-left-color:var(--warn)}
+.note.bad{border-left-color:var(--bad);background:#2a1414}
+.meta{color:var(--dim);font-size:14px;margin:6px 4px}
+.big{display:block;width:100%;min-height:80px;padding:14px 16px;border-radius:16px;text-align:left}
+.big b{display:block;font-size:25px;line-height:1.2}
+.big span{display:block;font-size:15px;font-weight:600;opacity:.85}
+.go{background:var(--acc);color:var(--ink);font-weight:800}
+.ghost{background:transparent;border:1.5px solid var(--line);font-weight:700}
+.danger{background:transparent;border:1.5px solid #6a2c2c;color:var(--bad);font-weight:700}
+.wide{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;margin-top:10px;font-size:18px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two button{min-height:60px;font-size:18px}
+.badge{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:8px;background:var(--warn);color:#211500;font-size:14px;font-weight:800}
+
+/* workout */
+.ex{background:var(--card);border-radius:14px;padding:12px 14px;margin:8px 0}
+.ex .n{font-size:18px;font-weight:800;overflow-wrap:anywhere}
+.ex .n small{font-size:14px;font-weight:500;color:var(--dim)}
+.ex .t{margin-top:2px}
+.ex .t b{font-size:18px;font-variant-numeric:tabular-nums}
+.ex .e,.ex .w{color:var(--dim);font-size:15px}
+.ex .w{margin-top:6px}
+.set{background:var(--card);border:2px solid transparent;border-radius:14px;padding:8px;margin:8px 0}
+.set.cur{border-color:var(--acc)}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:2px 6px;font-size:15px}
+.sh b{overflow-wrap:anywhere}
+.sh span{color:var(--dim);white-space:nowrap}
+.set.cur .sh span{color:var(--acc);font-weight:800}
+.row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin-top:6px;padding:6px 12px;border-radius:10px;text-align:left}
+.sd{flex:none;min-width:48px;font-size:15px;font-weight:800}
+.sd.wk{color:var(--weak)}
+.v{flex:1;min-width:0;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.row.todo .v{color:var(--dim);font-weight:600}
+.rr{flex:none;color:var(--dim);font-size:14px}
+.ck{flex:none;display:grid;place-items:center;width:28px;height:28px;border:2px solid var(--line);border-radius:50%;font-size:16px;font-weight:900}
+.row.done .ck{background:var(--acc);border-color:var(--acc);color:var(--ink)}
+.entry{margin-top:6px;padding:10px;border-radius:12px;background:#0a140f;border:1px solid #1f3a2b}
+.el{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin-bottom:8px}
+.who{font-size:20px;font-weight:900;letter-spacing:.03em}
+.who.wk{color:var(--weak)}
+.tg{color:var(--dim);font-size:14px}
+.inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f{position:relative;min-width:0}
+.f input{display:block;width:100%;height:74px;margin:0;padding:0 4px 16px;border:2px solid var(--line);border-radius:12px;background:#000;color:#fff;font-family:inherit;font-size:36px;font-weight:800;font-variant-numeric:tabular-nums;text-align:center;-webkit-appearance:none;appearance:none}
+.f input:focus{outline:none;border-color:var(--acc)}
+.f input.err{border-color:var(--bad)}
+.f span{position:absolute;left:0;right:0;bottom:7px;text-align:center;font-size:12px;color:var(--dim);pointer-events:none}
+.rl{margin:10px 2px 4px;font-size:13px;color:var(--dim)}
+.rir{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.rir button{padding:0;font-size:19px;font-weight:800}
+.rir button.on{background:var(--weak);color:#00131d}
+.log{width:100%;min-height:66px;margin-top:10px;background:var(--acc);color:var(--ink);font-size:23px;font-weight:900}
+.ci{margin-top:6px;padding:8px 10px;border:1px solid var(--warn);border-radius:10px;background:#2a2000;color:#ffe4ad;font-size:15px}
+.adds button{width:100%;margin-top:8px}
+
+/* history */
+details{background:var(--card);border-radius:14px;margin:8px 0;overflow:hidden}
+summary{display:flex;flex-direction:column;justify-content:center;min-height:58px;padding:10px 14px;list-style:none;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+summary b{font-size:17px;overflow-wrap:anywhere}
+summary span{color:var(--dim);font-size:14px}
+details[open]>summary b::after{content:" ▾";color:var(--dim)}
+.hs{padding:10px 14px;border-top:1px solid var(--line)}
+.hh{display:flex;justify-content:space-between;gap:10px;font-size:15px;color:var(--dim)}
+.hh .g{color:var(--text);font-weight:800;white-space:nowrap}
+.grid{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 12px;margin-top:6px;font-size:16px;font-variant-numeric:tabular-nums}
+.grid.one{grid-template-columns:auto 1fr}
+.grid .c{color:var(--dim);font-size:13px;align-self:center}
+.grid .c.wk{color:var(--weak);font-weight:700}
+.grid small{color:var(--dim);font-size:12px;white-space:nowrap}
+
+/* bottom tabs, confirm sheet, toast */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:var(--bar);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;min-height:58px;padding:0;border-radius:0;background:none;color:var(--dim);font-size:16px;font-weight:700}
+nav button.on{color:var(--acc);box-shadow:inset 0 3px 0 var(--acc)}
+body.typing nav{display:none}
+.modal{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(0,0,0,.78)}
+.box{width:100%;max-width:480px;margin-bottom:env(safe-area-inset-bottom);padding:18px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.box p{margin:0 0 6px;font-size:18px}
+#toast{position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:60;max-width:536px;margin:0 auto;padding:12px 14px;border-radius:12px;background:#fff;color:#000;font-weight:700;text-align:center}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav>
+  <button data-act="nav" data-v="home">Workout</button>
+  <button data-act="nav" data-v="history">History</button>
+  <button data-act="nav" data-v="settings">Settings</button>
+</nav>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" hidden></div>
+
+<script>
+'use strict';
+
+/* ================= The program ================= */
+// kind: opener | compound (presses, rows, pulldown) | iso (curls, extensions, calf raises, lateral raises) | physio
+const EX = {
+  rfess:     {name:'Rear-foot-elevated split squat', detail:'dumbbells', sets:3, lo:5, hi:8, leg:true, kind:'opener'},
+  hamcurl:   {name:'Single-leg hamstring curl', sets:3, lo:8, hi:12, leg:true, kind:'iso'},
+  bench:     {name:'Dumbbell bench press', sets:3, lo:6, hi:10, kind:'compound', unit:'kg per dumbbell'},
+  calfstand: {name:'Standing single-leg calf raise', detail:'dumbbell, on a step', sets:3, lo:8, hi:12, leg:true, kind:'iso'},
+  csrow:     {name:'Chest-supported dumbbell row', sets:3, lo:8, hi:12, kind:'compound', unit:'kg per dumbbell'},
+  latraise:  {name:'Dumbbell lateral raise', sets:2, lo:12, hi:15, kind:'iso', unit:'kg per dumbbell'},
+
+  slrdl:     {name:'Single-leg Romanian deadlift', detail:'dumbbell, free hand on a rack', sets:3, lo:6, hi:8, leg:true, kind:'opener'},
+  legext:    {name:'Single-leg leg extension', sets:3, lo:10, hi:15, leg:true, kind:'iso'},
+  shoulder:  {name:'Seated dumbbell shoulder press', sets:3, lo:6, hi:10, kind:'compound', unit:'kg per dumbbell'},
+  calfseat:  {name:'Seated single-leg calf raise', sets:3, lo:12, hi:15, leg:true, kind:'iso'},
+  latpull:   {name:'Iso-lateral lat pulldown', sets:3, lo:8, hi:12, kind:'compound', unit:'kg per side'},
+  curl:      {name:'Dumbbell curl', detail:'both arms together', sets:2, lo:10, hi:15, kind:'iso', unit:'kg per dumbbell'},
+
+  legpress:  {name:'Single-leg leg press', sets:3, lo:5, hi:8, leg:true, kind:'opener', step:5},
+  calfpress: {name:'Single-leg calf press', detail:'on the leg press', sets:3, lo:10, hi:15, leg:true, kind:'iso'},
+  incline:   {name:'Incline dumbbell press', sets:3, lo:8, hi:12, kind:'compound', unit:'kg per dumbbell'},
+  seatrow:   {name:'Iso-lateral seated row', sets:3, lo:8, hi:12, kind:'compound', unit:'kg per side'},
+  triceps:   {name:'Lying dumbbell triceps extension', detail:'one dumbbell per hand', sets:2, lo:10, hi:15, kind:'iso', unit:'kg per dumbbell'},
+
+  clam:      {name:'Clamshell', detail:'light band', sets:2, lo:15, hi:15, leg:true, kind:'physio'},
+  donkey:    {name:'Donkey kick', sets:3, lo:12, hi:15, leg:true, kind:'physio'},
+  hipthrust: {name:'Single-leg hip thrust', detail:'bodyweight, shoulders on a bench', sets:3, lo:8, hi:12, leg:true, kind:'physio'},
+  abduct:    {name:'Side-lying hip abduction', sets:2, lo:12, hi:15, leg:true, kind:'physio'}
+};
+
+// Each workout is a list of [heading, exercise]. Exercises are done one after another:
+// every set of one, then on to the next.
+const PLAN = {
+  A: {name:'Workout A', focus:'Quads lead', ex:[
+    ['Opener', 'rfess'], ['Exercise 2', 'hamcurl'], ['Exercise 3', 'bench'],
+    ['Exercise 4', 'calfstand'], ['Exercise 5', 'csrow'], ['Finisher', 'latraise']]},
+  B: {name:'Workout B', focus:'Hamstrings lead', ex:[
+    ['Opener', 'slrdl'], ['Exercise 2', 'legext'], ['Exercise 3', 'shoulder'],
+    ['Exercise 4', 'calfseat'], ['Exercise 5', 'latpull'], ['Finisher', 'curl']]},
+  C: {name:'Workout C', focus:'Quads and glutes lead', ex:[
+    ['Opener', 'legpress'], ['Exercise 2', 'calfpress'], ['Exercise 3', 'hamcurl'],
+    ['Exercise 4', 'incline'], ['Exercise 5', 'seatrow'], ['Exercise 6', 'triceps']]},
+  P: {name:'Glute physio', focus:'15–20 min · bodyweight or light band', ex:[
+    ['', 'clam'], ['', 'donkey'], ['', 'hipthrust'], ['', 'abduct']]}
+};
+const NEXT = {A:'B', B:'C', C:'A'};
+const REST = {opener:150, physio:40, other:75};   // seconds
+const SIDE = {L:'Left', R:'Right'};
+const PHYSIO_GUIDE = 'Slow reps with a 1–2 second squeeze at the top. Stop 3+ reps short of failure. Stay pain-free. Progress with more reps or a longer squeeze rather than load.';
+const KEY = 'gymTracker.v1';
+
+/* ================= State ================= */
+function fresh(){ return {v:1, settings:{weakLeg:null}, sessions:[], active:null, lastBackup:null}; }
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && s.v === 1 && s.settings && Array.isArray(s.sessions)) return s;
+  }catch(e){}
+  return fresh();
+}
+function save(){
+  clearTimeout(saveT);
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ toast('Could not save. Phone storage may be full or blocked.'); }
+}
+let saveT = 0;
+function saveSoon(){ clearTimeout(saveT); saveT = setTimeout(save, 250); }
+
+let state = load();
+let view = 'home';     // home (workout when one is running) | history | settings
+let sel = null;        // entry opened by tapping it; otherwise the next set in order is open
+let modalFn = null;
+let lastLog = 0;
+
+/* ================= Helpers ================= */
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function weak(){ return state.settings.weakLeg === 'R' ? 'R' : 'L'; }
+function strong(){ return weak() === 'L' ? 'R' : 'L'; }
+function sidesOf(d){ return d.leg ? [weak(), strong()] : ['B']; }
+function num(v){
+  if (v == null || v === '') return null;
+  const n = parseFloat(String(v).replace(',', '.'));
+  return isFinite(n) && n >= 0 ? n : null;
+}
+function fmtKg(w){ return String(Math.round(w * 100) / 100); }
+function range(d){ return d.lo === d.hi ? String(d.lo) : d.lo + '–' + d.hi; }
+function entryText(w, r){
+  const reps = (r === '' || r == null || (typeof r === 'number' && isNaN(r))) ? null : r;
+  if (w == null) return reps == null ? '—' : reps + ' reps';
+  return fmtKg(w) + ' kg × ' + (reps == null ? '?' : reps);
+}
+function fmtClock(ms){
+  const t = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+function fmtDate(ts){
+  const d = new Date(ts), o = {weekday:'short', day:'numeric', month:'short'};
+  if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+  return d.toLocaleDateString('en-GB', o);
+}
+function fmtDateTime(ts){
+  return new Date(ts).toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+function mins(s){ return Math.max(1, Math.round((s.end - s.start) / 60000)); }
+function pct(g){ const n = Math.round(g); return (n === 0 ? 0 : n) + '%'; }
+function dayNum(ts){ const d = new Date(ts); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5); }
+
+// Weeks are counted from the day of the first logged session: days 1–7 are week 1, and so on.
+function firstStart(){
+  let t = null;
+  state.sessions.forEach(s => { if (t == null || s.start < t) t = s.start; });
+  if (state.active && (t == null || state.active.start < t)) t = state.active.start;
+  return t;
+}
+function weekOf(ts){
+  const f = firstStart();
+  return f == null ? 1 : Math.max(1, Math.floor((dayNum(ts) - dayNum(f)) / 7) + 1);
+}
+function isCheckinWeek(week){ return week % 4 === 0; }
+
+function lastSets(id){
+  for (let i = state.sessions.length - 1; i >= 0; i--){
+    const e = state.sessions[i].ex.find(x => x.id === id);
+    if (e && e.sets.length) return e.sets;
+  }
+  return [];
+}
+function lastOfType(test){
+  for (let i = state.sessions.length - 1; i >= 0; i--) if (test(state.sessions[i])) return state.sessions[i];
+  return null;
+}
+function nextWorkout(){ const l = lastOfType(s => s.type !== 'P'); return l ? NEXT[l.type] : 'A'; }
+function planIds(type){ return PLAN[type].ex.map(x => x[1]); }
+
+/* ---- progression ---- */
+// Double progression: every working set last time reached the top of the range (weaker side for per-leg work).
+function goUp(id){
+  const d = EX[id];
+  if (d.kind === 'physio') return false;       // physio progresses with reps or squeeze, not load
+  const sets = lastSets(id), k = d.leg ? weak() : 'B';
+  return sets.length >= d.sets && sets.every(s => s[k] && s[k].r >= d.hi);
+}
+
+/* ---- left/right gap ---- */
+// Gap = (strong − weak) ÷ strong. At the same weight that is a comparison of reps;
+// if the weights differ, weight × reps is compared instead.
+function gapOf(sets){
+  const wk = weak(), st = strong(), pairs = sets.filter(s => s[wk] && s[st]);
+  if (!pairs.length) return null;
+  const useW = pairs.every(s => s[wk].w > 0 && s[st].w > 0);
+  let a = 0, b = 0;
+  pairs.forEach(s => { a += (useW ? s[wk].w : 1) * s[wk].r; b += (useW ? s[st].w : 1) * s[st].r; });
+  return b > 0 ? (b - a) / b * 100 : null;
+}
+function checkins(id){
+  const out = [];
+  state.sessions.forEach(s => {
+    const e = s.ex.find(x => x.id === id), t = e && e.sets.find(x => x.ci && x.L && x.R);
+    const g = t ? gapOf([t]) : null;
+    if (g != null) out.push({t: s.start, gap: g});
+  });
+  return out;
+}
+function physioFlag(id){
+  const c = checkins(id);
+  if (c.length < 2) return null;
+  const a = c[c.length - 2].gap, b = c[c.length - 1].gap, why = [];
+  if (a > 10 && b > 10) why.push('over 10% on two check-ins in a row');
+  if (b > a && b > 0) why.push('getting bigger');
+  return why.length ? `the gap is ${why.join(' and ')} (${pct(a)}, then ${pct(b)})` : null;
+}
+function flagHtml(id){
+  const f = physioFlag(id);
+  return f ? `<b>Raise this with your physio.</b> ${esc(EX[id].name)}: ${esc(f)}.` : '';
+}
+const OPENERS = Object.keys(EX).filter(id => EX[id].kind === 'opener');
+
+/* ---- effort targets and warm-ups ---- */
+function effort(d, week){
+  if (d.kind === 'opener') return week <= 2 ? '2 RIR (first two weeks)' : '1–2 RIR';
+  if (d.kind === 'compound') return '1–2 RIR';
+  if (d.kind === 'iso') return 'last set can go to 0–1 RIR';
+  return '3+ RIR';
+}
+function effortForSet(d, week, isLast, ci){
+  if (ci) return 'take it to 1 RIR';
+  if (d.kind === 'iso') return isLast ? 'can go to 0–1 RIR' : '';
+  return effort(d, week);
+}
+function workingWeight(exo){
+  const d = EX[exo.id], t = exo.sets[0];
+  if (!t) return null;
+  const w = num(d.leg ? t[weak()].w : t.B.w);
+  return w > 0 ? w : null;
+}
+function roundW(w, d){ const step = d.step || (w < 10 ? 1 : 2.5); return Math.round(w / step) * step; }
+function warmText(exo){
+  const d = EX[exo.id], w = workingWeight(exo);
+  if (d.kind === 'opener') return w
+    ? `Warm-up, per leg (not logged): about 50% ≈ ${fmtKg(roundW(w * 0.5, d))} kg × 8, then about 75% ≈ ${fmtKg(roundW(w * 0.75, d))} kg × 3–4`
+    : 'Warm-up, per leg (not logged): about 50% of your working weight × 8, then about 75% × 3–4';
+  return w
+    ? `Warm-up (not logged): 1 ramp-up set, about 60% ≈ ${fmtKg(roundW(w * 0.6, d))} kg × 6`
+    : 'Warm-up (not logged): 1 ramp-up set at about 60% of your working weight × 6';
+}
+
+/* ================= Running a session ================= */
+function blank(w, r){ w = w == null ? '' : String(w); return {w, r: r == null ? '' : String(r), pw: w, rir: null, done: false}; }
+
+// One set, prefilled from the same set last session. The stronger side copies the weaker side,
+// except on a check-in set where only the weight is copied and the reps are left to log.
+function newSet(d, prev, i, ci){
+  const p = prev.length ? prev[Math.min(i, prev.length - 1)] : null;
+  if (!d.leg) return {B: p && p.B ? blank(p.B.w, p.B.r) : blank()};
+  const wk = weak(), st = strong(), src = p && (p[wk] || p[st]);
+  const a = src ? blank(src.w, src.r) : blank();
+  const set = {};
+  set[wk] = a;
+  set[st] = blank(a.w, ci ? '' : a.r);
+  if (ci) set.ci = true;
+  return set;
+}
+
+function startSession(type){
+  const now = Date.now(), week = weekOf(now), ci = type !== 'P' && isCheckinWeek(week);
+  const s = {id: now, type, start: now, week, ci, ex: [], timer: null, last: null};
+  planIds(type).forEach(id => {
+    const d = EX[id], prev = lastSets(id), sets = [];
+    for (let i = 0; i < d.sets; i++) sets.push(newSet(d, prev, i, ci && d.kind === 'opener' && i === d.sets - 1));
+    s.ex.push({id, sets});
+  });
+  state.active = s;
+  sel = null; view = 'home';
+  save(); wake();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  render();
+  window.scrollTo(0, 0);
+}
+
+// Every entry in the order it is performed: exercise by exercise, set by set, weaker side first.
+function steps(s){
+  const out = [];
+  s.ex.forEach((exo, ei) => exo.sets.forEach((set, si) => sidesOf(EX[exo.id]).forEach(side => out.push({ei, si, side}))));
+  return out;
+}
+function entryAt(s, x){ const exo = s.ex[x.ei], set = exo && exo.sets[x.si]; return set ? set[x.side] : null; }
+function same(a, b){ return !!a && !!b && a.ei === b.ei && a.si === b.si && a.side === b.side; }
+// The next entry to do: the first unticked one after the entry ticked most recently.
+function current(s){
+  const st = steps(s);
+  let from = 0;
+  if (s.last){ const i = st.findIndex(x => same(x, s.last)); if (i >= 0) from = i + 1; }
+  for (let k = 0; k < st.length; k++){
+    const x = st[(from + k) % st.length];
+    if (!entryAt(s, x).done) return x;
+  }
+  return null;
+}
+function restFor(s, d){ return s.type === 'P' ? REST.physio : d.kind === 'opener' ? REST.opener : REST.other; }
+
+// A changed weight carries on to the sets still to come, so going up only needs typing once.
+function carry(exo, d, si, side, e){
+  if (d.leg && side !== weak()) return;
+  const changed = e.w !== e.pw;
+  for (let i = si + 1; i < exo.sets.length; i++){
+    const t = exo.sets[i];
+    sidesOf(d).forEach(k => {
+      const y = t[k];
+      if (y.done) return;
+      if (changed) y.w = e.w;
+      if (y.r === '' && !(t.ci && k === strong())) y.r = e.r;
+    });
+  }
+}
+
+function logEntry(x){
+  const s = state.active, exo = s && s.ex[x.ei], set = exo && exo.sets[x.si], e = set && set[x.side];
+  if (!e) return;
+  const d = EX[exo.id], w = num(e.w), r = parseInt(e.r, 10), bad = [];
+  if (d.kind !== 'physio' && w == null) bad.push('w');
+  if (!(r > 0)) bad.push('r');
+  if (bad.length){
+    bad.forEach(f => { const i = document.querySelector(`input[data-f="${f}"]`); if (i) i.classList.add('err'); });
+    const first = document.querySelector(`input[data-f="${bad[0]}"]`);
+    if (first) first.focus();
+    toast(bad[0] === 'w' ? 'Enter the weight' : 'Enter the reps');
+    return;
+  }
+  e.w = w == null ? '' : fmtKg(w);
+  e.r = String(r);
+  const was = e.done;
+  e.done = true;
+  if (d.leg && x.side === weak()){
+    const o = set[strong()];
+    if (!o.done){ o.w = e.w; if (!set.ci) o.r = e.r; }
+  }
+  if (!was){
+    carry(exo, d, x.si, x.side, e);
+    s.last = {ei: x.ei, si: x.si, side: x.side};
+    s.timer = null;
+    // Rest starts once the whole set is done (both legs on per-leg work), unless nothing is left.
+    if (sidesOf(d).every(k => set[k].done) && current(s)) s.timer = {end: Date.now() + restFor(s, d) * 1000, rang: false};
+  }
+  sel = null;
+  lastLog = Date.now();
+  save();
+  render(true);
+}
+
+function addSet(ei){
+  const s = state.active, exo = s.ex[ei], d = EX[exo.id], prev = exo.sets[exo.sets.length - 1];
+  let set;
+  if (d.leg){
+    const p = prev && prev[weak()], a = p ? blank(p.w, p.r) : blank();
+    set = {}; set[weak()] = a; set[strong()] = blank(a.w, a.r);
+  } else set = {B: prev ? blank(prev.B.w, prev.B.r) : blank()};
+  exo.sets.push(set);
+  sel = {ei, si: exo.sets.length - 1, side: d.leg ? weak() : 'B'};
+  save();
+  render(true);
+}
+function deleteSet(ei, si){
+  const s = state.active, exo = s.ex[ei];
+  exo.sets.splice(si, 1);
+  if (s.last && s.last.ei === ei){
+    if (s.last.si === si) s.last = null;
+    else if (s.last.si > si) s.last.si--;
+  }
+  sel = null;
+  save();
+  render();
+}
+
+// Keeps only ticked entries. Returns the saved shape plus how many sets were left unticked.
+function collect(s){
+  const ex = [];
+  let open = 0;
+  s.ex.forEach(exo => {
+    const d = EX[exo.id], sets = [];
+    exo.sets.forEach(set => {
+      const o = {};
+      let any = false, all = true;
+      (d.leg ? ['L', 'R'] : ['B']).forEach(k => {
+        const e = set[k], r = parseInt(e.r, 10);
+        if (e.done && r > 0){ o[k] = {w: num(e.w), r, rir: e.rir}; any = true; }
+        else { all = false; if (d.leg) o[k] = null; }
+      });
+      if (!all) open++;
+      if (any){ if (set.ci) o.ci = true; sets.push(o); }
+    });
+    if (sets.length) ex.push({id: exo.id, sets});
+  });
+  return {ex, open};
+}
+function finishSession(){
+  const s = state.active, c = collect(s);
+  state.sessions.push({id: s.id, type: s.type, start: s.start, end: Date.now(), week: s.week, ex: c.ex});
+  state.active = null;
+  sel = null;
+  save(); unwake();
+  render();
+  window.scrollTo(0, 0);
+  toast(`${PLAN[s.type].name} saved · ${mins(state.sessions[state.sessions.length - 1])} min`);
+}
+function discardSession(){
+  state.active = null; sel = null;
+  save(); unwake();
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ================= Rest timer, beep, screen wake ================= */
+// The timer is only an end time. What is shown is always worked out from the clock,
+// so it stays right after the phone has been locked or the app was in the background.
+let actx = null, wakeLock = null;
+function unlockAudio(){
+  try{
+    if (!actx){ const C = window.AudioContext || window.webkitAudioContext; if (!C) return; actx = new C(); }
+    if (actx.state !== 'running') actx.resume();
+  }catch(e){}
+}
+function beep(){
+  if (!actx) return;
+  try{
+    if (actx.state !== 'running') actx.resume();
+    const t = actx.currentTime + 0.02;
+    [0, 0.28, 0.56].forEach(at => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(0.35, t + at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.2);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t + at); o.stop(t + at + 0.22);
+    });
+  }catch(e){}
+}
+function restOver(){
+  beep();
+  try{ if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 300]); }catch(e){}
+}
+async function wake(){
+  if (!state.active || !('wakeLock' in navigator) || document.hidden) return;
+  try{ if (!wakeLock || wakeLock.released) wakeLock = await navigator.wakeLock.request('screen'); }catch(e){}
+}
+function unwake(){ if (wakeLock){ wakeLock.release().catch(() => {}); wakeLock = null; } }
+
+function tick(){
+  const s = state.active;
+  if (!s) return;
+  const now = Date.now(), t = s.timer;
+  if (t && !t.rang && now >= t.end){ t.rang = true; save(); restOver(); }
+  const c = $('clockNum'), box = $('timer');
+  if (!c || !box) return;
+  const run = now - s.start;
+  c.textContent = fmtClock(run);
+  c.parentNode.classList.toggle('over', run >= 3600000);
+  if (!t){ box.hidden = true; return; }
+  box.hidden = false;
+  box.classList.toggle('over', t.rang);
+  $('tlabel').textContent = t.rang ? 'Rest over' : 'Rest';
+  $('tnum').textContent = t.rang ? 'GO' : fmtClock(Math.ceil((t.end - now) / 1000) * 1000);
+  $('tskip').textContent = t.rang ? 'OK' : 'Skip';
+}
+
+/* ================= Screens ================= */
+function head(title, right){
+  return `<header class="top"><div class="bar"><div class="title">${title}</div>${right || ''}</div></header>`;
+}
+
+function vHome(){
+  const wk = weekOf(Date.now());
+  let h = head('Gym Tracker', `<div class="side-note">Week ${wk}</div>`) + '<main>';
+  if (!state.settings.weakLeg){
+    return h + `<div class="card"><p><b>Which leg is your weaker one?</b></p>
+      <p class="meta">Per-leg sets show this side first, and the stronger side is prefilled to match it. You can change it later in Settings.</p>
+      <div class="two"><button class="ghost" data-act="weak" data-leg="L">Left</button><button class="ghost" data-act="weak" data-leg="R">Right</button></div></div></main>`;
+  }
+  OPENERS.forEach(id => { const f = flagHtml(id); if (f) h += `<div class="card note bad">${f}</div>`; });
+  if (isCheckinWeek(wk)) h += `<div class="card note warn"><b>Check-in week.</b> On the last set of each opener, take each leg to 1 RIR at the same weight and log the reps you get.</div>`;
+
+  const next = nextWorkout(), lastGym = lastOfType(s => s.type !== 'P'), lastP = lastOfType(s => s.type === 'P');
+  h += `<div class="label">Next in your rotation</div>
+    <button class="big go" data-act="start" data-type="${next}"><b>Start ${PLAN[next].name}</b><span>${PLAN[next].focus}</span></button>`;
+  const ups = planIds(next).filter(goUp).map(id => EX[id].name);
+  if (ups.length) h += `<p class="meta"><b>Go up this time:</b> ${esc(ups.join(', '))}</p>`;
+  h += `<p class="meta">${lastGym ? `Last gym session: ${PLAN[lastGym.type].name} · ${fmtDate(lastGym.start)} · ${mins(lastGym)} min` : 'No gym sessions logged yet.'}</p>`;
+  h += `<div class="label">Or pick another</div><div class="two">` +
+    ['A', 'B', 'C'].filter(t => t !== next).map(t => `<button class="ghost" data-act="start" data-type="${t}">${PLAN[t].name}</button>`).join('') + `</div>`;
+  h += `<div class="label">Non-gym day</div>
+    <button class="big" data-act="start" data-type="P"><b>Start glute physio</b><span>${PLAN.P.focus}</span></button>
+    <p class="meta">${lastP ? `Last physio session: ${fmtDate(lastP.start)} · ${mins(lastP)} min` : 'No physio sessions logged yet.'}</p>`;
+  return h + '</main>';
+}
+
+function rowHtml(x, e, d){
+  const side = d.leg ? `<span class="sd${x.side === weak() ? ' wk' : ''}">${SIDE[x.side]}</span>` : '';
+  return `<button class="row ${e.done ? 'done' : 'todo'}" id="r-${x.ei}-${x.si}-${x.side}" data-act="sel" data-ei="${x.ei}" data-si="${x.si}" data-side="${x.side}">${side}<span class="v">${esc(entryText(num(e.w), e.r))}</span>${e.rir != null ? `<span class="rr">RIR ${e.rir}</span>` : ''}<span class="ck">${e.done ? '✓' : ''}</span></button>`;
+}
+function entryHtml(s, x, e, d, set, isLast){
+  const at = `data-ei="${x.ei}" data-si="${x.si}" data-side="${x.side}"`;
+  const isWeak = d.leg && x.side === weak();
+  const who = d.leg ? SIDE[x.side].toUpperCase() + ' LEG' : 'BOTH ARMS';
+  const about = !d.leg ? '' : isWeak ? 'weaker side' : set.ci ? 'stronger side · log your real reps' : 'stronger side · matched to ' + SIDE[weak()].toLowerCase();
+  const eff = effortForSet(d, s.week, isLast, set.ci);
+  const unit = d.kind === 'physio' ? 'kg (optional)' : d.unit || 'kg';
+  return `<div class="entry">
+    <div class="el"><span class="who${isWeak ? ' wk' : ''}">${who}</span>${about ? `<span class="tg">${about}</span>` : ''}<span class="tg">Target ${range(d)} reps${eff ? ' · ' + eff : ''}</span></div>
+    <div class="inputs">
+      <label class="f"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="next" value="${esc(e.w)}" data-f="w" ${at} aria-label="Weight in kg"><span>${unit}</span></label>
+      <label class="f"><input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" value="${esc(e.r)}" data-f="r" ${at} aria-label="Reps"><span>reps</span></label>
+    </div>
+    <div class="rl">RIR (optional)</div>
+    <div class="rir">${[0, 1, 2, 3, 4].map(n => `<button class="${e.rir === n ? 'on' : ''}" data-act="rir" data-n="${n}" ${at}>${n}</button>`).join('')}</div>
+    <button class="log" data-act="log" ${at}>${e.done ? 'Save changes' : '✓ Done'}</button>
+    ${e.done ? `<button class="wide danger" data-act="delset" ${at}>Delete this set</button>` : ''}
+  </div>`;
+}
+function setHtml(s, ei, si, cur, act){
+  const exo = s.ex[ei], d = EX[exo.id], set = exo.sets[si], isCur = !!cur && cur.ei === ei && cur.si === si;
+  let h = `<div class="set${isCur ? ' cur' : ''}"><div class="sh"><b>${esc(d.name)}</b><span>${isCur ? 'NOW · ' : ''}Set ${si + 1} of ${exo.sets.length}</span></div>`;
+  if (set.ci) h += `<div class="ci"><b>Check-in set.</b> Take each leg to 1 RIR at the same weight and log the reps you get. Do not match the stronger leg to the weaker one.</div>`;
+  sidesOf(d).forEach(side => {
+    const x = {ei, si, side}, e = set[side];
+    h += same(act, x) ? entryHtml(s, x, e, d, set, si === exo.sets.length - 1) : rowHtml(x, e, d);
+  });
+  return h + '</div>';
+}
+function infoHtml(s, ei, firstUpper){
+  const exo = s.ex[ei], d = EX[exo.id];
+  let h = `<div class="ex"><div class="n">${esc(d.name)}${d.detail ? ` <small>(${esc(d.detail)})</small>` : ''}</div>
+    <div class="t"><b>${d.sets} × ${range(d)}</b>${d.leg ? ' per leg' : ''} <span class="e">· Effort: ${effort(d, s.week)}</span></div>`;
+  if (goUp(exo.id)) h += `<div class="badge">GO UP: you hit ${d.hi} reps on every set last time. Pick a heavier weight.</div>`;
+  if (d.kind === 'opener' || exo.id === firstUpper) h += `<div class="w" id="wu-${ei}">${esc(warmText(exo))}</div>`;
+  return h + '</div>';
+}
+function vWorkout(){
+  const s = state.active, plan = PLAN[s.type], cur = current(s), act = sel || cur;
+  const firstUpper = planIds(s.type).find(id => !EX[id].leg);
+  let h = `<header class="top"><div class="bar"><div class="title">${plan.name}<small>${plan.focus}</small></div>
+      <div class="clock"><small>Session</small><span id="clockNum">0:00</span></div></div>
+    <div class="timer" id="timer" hidden><div class="tlabel" id="tlabel">Rest</div><div class="tnum" id="tnum"></div>
+      <div class="tbtns"><button class="adj" data-act="tadj" data-d="-15">−15 s</button><button class="adj" data-act="tadj" data-d="15">+15 s</button><button data-act="tskip" id="tskip">Skip</button></div></div>
+    </header><main>`;
+  if (s.type === 'P') h += `<div class="card note">${PHYSIO_GUIDE}</div>`;
+  if (s.ci) h += `<div class="card note warn"><b>Check-in week.</b> The last set of the opener is a check-in: each leg to 1 RIR at the same weight.</div>`;
+  plan.ex.forEach(([label], ei) => {
+    if (label) h += `<h2>${label}</h2>`;
+    h += infoHtml(s, ei, firstUpper);
+    s.ex[ei].sets.forEach((set, si) => { h += setHtml(s, ei, si, cur, act); });
+    h += `<div class="adds"><button class="ghost" data-act="addset" data-ei="${ei}">+ Add set</button></div>`;
+  });
+  h += `<button class="wide go" id="finish" data-act="finish">Finish ${s.type === 'P' ? 'session' : 'workout'}</button>
+    <button class="wide danger" data-act="discard">Discard without saving</button></main>`;
+  return h;
+}
+
+function cell(e){ return e ? esc(entryText(e.w, e.r)) + (e.rir != null ? ` <small>RIR ${e.rir}</small>` : '') : '—'; }
+function exHistory(id){
+  const d = EX[id], rows = [];
+  for (let i = state.sessions.length - 1; i >= 0; i--){
+    const s = state.sessions[i], e = s.ex.find(x => x.id === id);
+    if (e) rows.push({s, e});
+  }
+  if (!rows.length) return '';
+  let h = `<details><summary><b>${esc(d.name)}</b><span>${rows.length} session${rows.length > 1 ? 's' : ''} · last ${fmtDate(rows[0].s.start)}</span></summary>`;
+  if (d.kind === 'opener'){
+    const c = checkins(id), f = flagHtml(id);
+    if (c.length) h += `<div class="hs"><b>Check-in gap:</b> ${c.map(x => pct(x.gap)).join(' → ')}</div>`;
+    if (f) h += `<div class="hs note bad">${f}</div>`;
+  }
+  if (goUp(id)) h += `<div class="hs"><span class="badge" style="margin:0">Go up next time</span></div>`;
+  rows.forEach(({s, e}) => {
+    const ciSet = d.leg ? e.sets.find(t => t.ci) : null, g = d.leg ? gapOf(ciSet ? [ciSet] : e.sets) : null;
+    h += `<div class="hs"><div class="hh"><span>${fmtDate(s.start)} · ${PLAN[s.type].name}</span>${g != null ? `<span class="g">${ciSet ? 'Check-in gap' : 'Gap'} ${pct(g)}</span>` : ''}</div>`;
+    if (d.leg){
+      h += `<div class="grid"><span class="c"></span><span class="c${weak() === 'L' ? ' wk' : ''}">Left${weak() === 'L' ? ' (weaker)' : ''}</span><span class="c${weak() === 'R' ? ' wk' : ''}">Right${weak() === 'R' ? ' (weaker)' : ''}</span>` +
+        e.sets.map((t, i) => `<span class="c">Set ${i + 1}${t.ci ? ' ✱' : ''}</span><span>${cell(t.L)}</span><span>${cell(t.R)}</span>`).join('') + '</div>';
+      if (ciSet) h += '<div class="meta" style="margin:6px 0 0">✱ check-in set</div>';
+    } else {
+      h += '<div class="grid one">' + e.sets.map((t, i) => `<span class="c">Set ${i + 1}</span><span>${cell(t.B)}</span>`).join('') + '</div>';
+    }
+    h += '</div>';
+  });
+  return h + '</details>';
+}
+function vHistory(){
+  let h = head('History') + '<main>';
+  const ss = state.sessions;
+  if (!ss.length) return h + '<div class="card">Nothing logged yet. Finished sessions will show up here.</div></main>';
+  h += `<details><summary><b>All sessions</b><span>${ss.length} saved</span></summary>` +
+    ss.slice().reverse().map(s => `<div class="hs"><div class="hh"><span>${fmtDate(s.start)} · ${PLAN[s.type].name}</span><span class="g">${mins(s)} min</span></div></div>`).join('') + '</details>';
+  h += '<div class="label">By exercise</div>';
+  const seen = {};
+  ['A', 'B', 'C', 'P'].forEach(t => planIds(t).forEach(id => { if (!seen[id]){ seen[id] = 1; h += exHistory(id); } }));
+  return h + `<p class="meta">Gap = (stronger − weaker) ÷ stronger. On check-in sets it compares the reps each leg got at the same weight.</p></main>`;
+}
+
+function vSettings(){
+  const w = state.settings.weakLeg;
+  return head('Settings') + `<main>
+    <div class="label">Weaker leg</div>
+    <div class="two"><button class="${w === 'L' ? 'go' : 'ghost'}" data-act="weak" data-leg="L">Left</button><button class="${w === 'R' ? 'go' : 'ghost'}" data-act="weak" data-leg="R">Right</button></div>
+    <p class="meta">Per-leg sets show this side first, and the stronger side is prefilled to match it.</p>
+    <div class="label">Backup</div>
+    <div class="card">
+      <div>Last backup: <b>${state.lastBackup ? fmtDateTime(state.lastBackup) : 'never'}</b></div>
+      <p class="meta" style="margin-left:0">Everything is stored only on this phone, and phone browsers can clear that storage. Export a backup regularly and keep the file somewhere safe.</p>
+      <button class="wide go" data-act="export">Export backup</button>
+      <label class="btn wide ghost">Import backup<input class="vh" type="file" id="file" accept=".json,application/json"></label>
+    </div>
+    <p class="meta">${state.sessions.length} session${state.sessions.length === 1 ? '' : 's'} saved on this phone.</p></main>`;
+}
+
+function render(scroll){
+  $('app').innerHTML = view === 'history' ? vHistory() : view === 'settings' ? vSettings() : state.active ? vWorkout() : vHome();
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  tick();
+  if (!scroll) return;
+  const open = document.querySelector('.entry'), el = open ? open.closest('.set') : $('finish'), top = document.querySelector('.top');
+  if (el) window.scrollTo({top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - (top ? top.offsetHeight : 0) - 8), behavior: 'smooth'});
+}
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => { t.hidden = true; }, 2800);
+}
+function confirmBox(msg, yes, fn, danger){
+  modalFn = fn;
+  $('modal').innerHTML = `<div class="box"><p>${esc(msg)}</p><button class="wide ${danger ? 'danger' : 'go'}" data-act="myes">${esc(yes)}</button><button class="wide ghost" data-act="mno">Cancel</button></div>`;
+  $('modal').hidden = false;
+}
+function closeModal(){ $('modal').hidden = true; modalFn = null; }
+
+/* ================= Backup ================= */
+function buildBackup(now){
+  const data = JSON.parse(JSON.stringify(state));
+  data.lastBackup = now;
+  return JSON.stringify({app: 'gym-tracker', version: 1, exportedAt: new Date(now).toISOString(), data}, null, 2);
+}
+function downloadFile(text, name){
+  const url = URL.createObjectURL(new Blob([text], {type: 'application/json'})), a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function exportBackup(){
+  save();
+  const now = Date.now(), d = new Date(now), text = buildBackup(now);
+  const name = `gym-tracker-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+  const done = () => { state.lastBackup = now; save(); if (view === 'settings') render(); toast('Backup exported'); };
+  // An iPhone home-screen app cannot download directly, so it hands the file to the share sheet ("Save to Files").
+  try{
+    const file = new File([text], name, {type: 'application/json'});
+    if (navigator.standalone && navigator.canShare && navigator.canShare({files: [file]})){
+      navigator.share({files: [file]}).then(done).catch(err => { if (!err || err.name !== 'AbortError'){ downloadFile(text, name); done(); } });
+      return;
+    }
+  }catch(e){}
+  downloadFile(text, name);
+  done();
+}
+
+// Rebuilds the state from a backup file, keeping only what the app understands.
+function cleanBackup(obj){
+  if (!obj || obj.app !== 'gym-tracker' || !obj.data || !Array.isArray(obj.data.sessions)) return null;
+  const d = obj.data, out = fresh();
+  const wl = d.settings && d.settings.weakLeg;
+  out.settings.weakLeg = wl === 'L' || wl === 'R' ? wl : null;
+  out.lastBackup = typeof d.lastBackup === 'number' ? d.lastBackup : null;
+  const rir = v => [0, 1, 2, 3, 4].indexOf(v) >= 0 ? v : null;
+  const ent = e => {
+    if (!e || typeof e !== 'object') return null;
+    const r = Math.round(Number(e.r)), w = e.w == null ? null : Number(e.w);
+    return r > 0 ? {w: w != null && isFinite(w) && w >= 0 ? w : null, r, rir: rir(e.rir)} : null;
+  };
+  d.sessions.forEach(s => {
+    if (!s || !PLAN[s.type] || !isFinite(Number(s.start))) return;
+    const ex = [];
+    (Array.isArray(s.ex) ? s.ex : []).forEach(x => {
+      const def = x && EX[x.id];
+      if (!def || !Array.isArray(x.sets)) return;
+      const sets = [];
+      x.sets.forEach(t => {
+        if (!t) return;
+        if (def.leg){
+          const o = {L: ent(t.L), R: ent(t.R)};
+          if (!o.L && !o.R) return;
+          if (t.ci) o.ci = true;
+          sets.push(o);
+        } else { const b = ent(t.B); if (b) sets.push({B: b}); }
+      });
+      if (sets.length) ex.push({id: x.id, sets});
+    });
+    const start = Number(s.start);
+    out.sessions.push({id: Number(s.id) || start, type: s.type, start, end: Number(s.end) || start, week: Number(s.week) || 1, ex});
+  });
+  out.sessions.sort((a, b) => a.start - b.start);
+
+  // A workout that was in progress when the backup was made
+  const a = d.active;
+  if (a && PLAN[a.type] && isFinite(Number(a.start)) && Array.isArray(a.ex)){
+    const ids = planIds(a.type), str = v => v == null ? '' : String(v).slice(0, 8);
+    const live = e => {
+      e = e || {};
+      const o = {w: str(e.w), r: str(e.r), pw: str(e.pw), rir: rir(e.rir), done: !!e.done};
+      if (o.done && !(parseInt(o.r, 10) > 0)) o.done = false;
+      return o;
+    };
+    if (a.ex.length === ids.length && a.ex.every((x, i) => x && x.id === ids[i] && Array.isArray(x.sets))){
+      const pos = a.last && [a.last.ei, a.last.si].every(Number.isInteger) && typeof a.last.side === 'string' ? {ei: a.last.ei, si: a.last.si, side: a.last.side} : null;
+      out.active = {id: Number(a.id) || Number(a.start), type: a.type, start: Number(a.start), week: Number(a.week) || 1, ci: !!a.ci, timer: null, last: pos,
+        ex: a.ex.map((x, i) => ({id: ids[i], sets: x.sets.map(t => {
+          t = t || {};
+          const o = EX[ids[i]].leg ? {L: live(t.L), R: live(t.R)} : {B: live(t.B)};
+          if (t.ci) o.ci = true;
+          return o;
+        })}))};
+    }
+  }
+  return out;
+}
+function importBackup(text){
+  let obj;
+  try{ obj = JSON.parse(text); }catch(e){ toast('That file is not a valid backup'); return; }
+  const data = cleanBackup(obj);
+  if (!data){ toast('That file is not a Gym Tracker backup'); return; }
+  const when = obj.exportedAt && !isNaN(Date.parse(obj.exportedAt)) ? ' from ' + fmtDateTime(Date.parse(obj.exportedAt)) : '';
+  confirmBox(`Replace everything on this phone with the backup${when}? It holds ${data.sessions.length} saved session${data.sessions.length === 1 ? '' : 's'}.`, 'Replace with backup', () => {
+    state = data; sel = null; view = 'home';
+    save(); render(); wake();
+    window.scrollTo(0, 0);
+    toast('Backup restored');
+  });
+}
+
+/* ================= Events ================= */
+function pos(el){ return {ei: +el.dataset.ei, si: +el.dataset.si, side: el.dataset.side}; }
+const ACT = {
+  nav(b){ view = b.dataset.v; render(); window.scrollTo(0, 0); },
+  weak(b){ state.settings.weakLeg = b.dataset.leg; sel = null; save(); render(); },
+  start(b){ if (!state.active) startSession(b.dataset.type); },
+  sel(b){ sel = pos(b); render(); },
+  log(b){ logEntry(pos(b)); },
+  rir(b){
+    const e = state.active && entryAt(state.active, pos(b));
+    if (!e) return;
+    const n = +b.dataset.n;
+    e.rir = e.rir === n ? null : n;
+    b.parentNode.querySelectorAll('button').forEach(q => q.classList.toggle('on', +q.dataset.n === e.rir));
+    save();
+  },
+  addset(b){ addSet(+b.dataset.ei); },
+  delset(b){
+    const x = pos(b), exo = state.active.ex[x.ei];
+    confirmBox(`Delete set ${x.si + 1} of ${EX[exo.id].name}?`, 'Delete set', () => deleteSet(x.ei, x.si), true);
+  },
+  finish(){
+    const c = collect(state.active);
+    if (!c.ex.length) return confirmBox('Nothing has been ticked off yet. Discard this session?', 'Discard', discardSession, true);
+    if (c.open) return confirmBox(`${c.open} set${c.open === 1 ? ' is' : 's are'} not ticked off and will not be saved. Finish anyway?`, 'Finish and save', finishSession);
+    finishSession();
+  },
+  discard(){ confirmBox('Discard this session? Nothing from it will be saved.', 'Discard', discardSession, true); },
+  tadj(b){ const t = state.active && state.active.timer; if (t && !t.rang){ t.end += Number(b.dataset.d) * 1000; save(); tick(); } },
+  tskip(){ if (state.active){ state.active.timer = null; save(); tick(); } },
+  export(){ exportBackup(); },
+  myes(){ const fn = modalFn; closeModal(); if (fn) fn(); },
+  mno(){ closeModal(); }
+};
+
+document.addEventListener('click', e => {
+  unlockAudio();
+  if (e.target.id === 'modal'){ closeModal(); return; }
+  const b = e.target.closest('[data-act]');
+  if (!b || Date.now() - lastLog < 350) return;      // ignore a double tap landing on whatever moved under the thumb
+  const fn = ACT[b.dataset.act];
+  if (fn) fn(b);
+});
+
+document.addEventListener('input', e => {
+  const el = e.target, s = state.active;
+  if (!s || !el.matches('input[data-f]')) return;
+  const x = pos(el), f = el.dataset.f, exo = s.ex[x.ei], set = exo && exo.sets[x.si], en = set && set[x.side];
+  if (!en) return;
+  let v = el.value.replace(/,/g, '.').replace(f === 'w' ? /[^0-9.]/g : /[^0-9]/g, '');
+  const dot = v.indexOf('.');
+  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '');
+  v = v.slice(0, 6);
+  if (v !== el.value) el.value = v;
+  el.classList.remove('err');
+  en[f] = v;
+  const d = EX[exo.id];
+  // The stronger side follows the weaker side until it has been ticked off itself.
+  if (d.leg && x.side === weak()){
+    const o = set[strong()];
+    if (!o.done){
+      if (f === 'w') o.w = v; else if (!set.ci) o.r = v;
+      const row = $(`r-${x.ei}-${x.si}-${strong()}`);
+      if (row) row.querySelector('.v').textContent = entryText(num(o.w), o.r);
+    }
+  }
+  if (f === 'w' && x.si === 0){ const wu = $('wu-' + x.ei); if (wu) wu.textContent = warmText(exo); }
+  saveSoon();
+});
+
+// While typing: hide the tab bar and shrink the timer so the Done button stays above the keyboard.
+let typingT = 0;
+document.addEventListener('focusin', e => {
+  if (!e.target.matches('input[data-f]')) return;
+  clearTimeout(typingT);
+  document.body.classList.add('typing');
+  const el = e.target;
+  setTimeout(() => { try{ el.setSelectionRange(0, el.value.length); }catch(err){} }, 0);
+});
+document.addEventListener('focusout', () => {
+  clearTimeout(typingT);
+  typingT = setTimeout(() => document.body.classList.remove('typing'), 250);   // after the tap that closed the keyboard has landed
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches('input[data-f]')) return;
+  e.preventDefault();
+  const reps = document.querySelector('input[data-f="r"]'), done = document.querySelector('.log');
+  if (e.target.dataset.f === 'w' && reps) reps.focus();
+  else { e.target.blur(); if (done) done.click(); }
+});
+document.addEventListener('change', e => {
+  if (e.target.id !== 'file' || !e.target.files[0]) return;
+  const r = new FileReader();
+  r.onload = () => importBackup(String(r.result));
+  r.readAsText(e.target.files[0]);
+  e.target.value = '';
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) save();
+  else { tick(); wake(); }
+});
+window.addEventListener('pageshow', tick);
+window.addEventListener('focus', tick);
+window.addEventListener('pagehide', save);
+setInterval(tick, 250);
+
+render(!!state.active);   // reopening mid-workout jumps straight back to the current set
+wake();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+</script>
+</body>
+</html>
